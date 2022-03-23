@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>스네이크 게임</title>
+
+    <script src="/lib/js/bootstrap.min.js"></script>
+
+    <link href="/lib/css/bootstrap.css" rel="stylesheet"/>
+    <link href="/lib/css/site.css" rel="stylesheet"/>
+
+    <link href="/lib/css/navbar.css" rel="stylesheet"/>
+    <link href="/lib/css/fonts.css" rel="stylesheet"/>
+</head>
+<body>
+<style>
+    #title {
+        font-weight: 700;
+    }
+
+    #subtitle {
+        font-weight: 500;
+    }
+
+    #info {
+    }
+
+    #snakeBoard {
+        position: relative;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+</style>
+
+<div id="game">
+    <div style="text-align: center">
+        <h2 id="title"></h2>
+        <h5 id="subtitle"></h5>
+        <h7 id="info">엔터 키를 눌러 재시도</h7>
+    </div>
+    <canvas id="snakeBoard" width="400" height="400"></canvas>
+    <div style="text-align: center">
+        <h5 id="mobileInfo"></h5>
+        <div id="mobileKeyPad">
+        </div>
+    </div>
+</div>
+
+<script>
+    const width = 40;
+    const height = 40;
+    const tickSpeed = 100;
+    const tileSize = 10;
+
+    const boardBorderColor = "black";
+    const boardBgColor = "white";
+    const unitBorderColor = "darkblue";
+    const snakeColor = "limegreen";
+    const appleColor = "red";
+
+    const board = document.getElementById("snakeBoard");
+    const boardCtx = board.getContext("2d");
+
+    const keyOpposite = {
+        "ArrowUp": "ArrowUp",
+        "ArrowDown": "ArrowUp",
+        "ArrowLeft": "ArrowRight",
+        "ArrowRight": "ArrowLeft"
+    };
+
+    let snakePositions;
+
+    let dx = tileSize;
+    let dy = 0;
+
+    let lastKey = "ArrowRight";
+    let gotApple = false;
+    let isGameOver = false;
+    let applePosition;
+
+    window.onload = awake;
+
+    window.onkeydown = onKeyPressed;
+
+    function vector2(x, y) {
+        this.x = (x === undefined) ? 0 : x;
+        this.y = (y === undefined) ? 0 : y;
+    }
+
+    function awake() {
+        reset();
+        field = new Array(height);
+        for (let i = 0; i < width; i++) {
+            field[i] = new Array(width);
+        }
+        if (isMobile()) {
+            const mobileInfo = document.getElementById("mobileInfo")
+            mobileInfo.innerHTML = "모바일 여러분을 위한 작은 배려";
+            const mobileKeyPad = document.getElementById("mobileKeyPad");
+            mobileKeyPad.innerHTML = `<div><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowUp")'>⬆</button></div><div><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowLeft")'>⬅</button><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowDown")'>⬇</button><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowRight")'>➡</button></div>`;
+        }
+    }
+
+    function reset() {
+        isGameOver = false;
+        snakePositions = [
+            {x: width / 2 * tileSize, y: height / 2 * tileSize},
+        ];
+        updateScore();
+        updateHighestScore();
+        shuffleApple();
+        update()
+    }
+
+    function update() {
+        if (!isGameOver) {
+            setTimeout(function onTick() {
+                clearBoard();
+                moveSnake();
+                drawSnake();
+                drawApple();
+                update();
+            }, tickSpeed)
+        }
+    }
+
+    function onKeyPressed(e) {
+        if (handleGameKey(e.key)) {
+            e.preventDefault();
+        }
+    }
+
+    function handleGameKey(key) {
+        if (lastKey != keyOpposite[key]) {
+            switch (key) {
+                case "ArrowUp":
+                    dx = 0;
+                    dy = -tileSize;
+                    lastKey = key;
+                    return true;
+                case "ArrowDown":
+                    dx = 0;
+                    dy = tileSize;
+                    lastKey = key;
+                    return true;
+                case "ArrowLeft":
+                    dx = -tileSize;
+                    dy = 0;
+                    lastKey = key;
+                    return true;
+                case "ArrowRight":
+                    dx = tileSize;
+                    dy = 0;
+                    lastKey = key;
+                    return true;
+            }
+        }
+        if (isGameOver && key == "Enter") {
+            reset();
+            return true;
+        }
+        return false;
+    }
+
+    function clearBoard() {
+        boardCtx.fillStyle = boardBgColor;
+        boardCtx.strokestyle = boardBorderColor;
+        boardCtx.fillRect(0, 0, board.width, board.height);
+        boardCtx.strokeRect(0, 0, board.width, board.height);
+    }
+
+    function drawSnake() {
+        snakePositions.forEach(drawSnakePart)
+    }
+
+    function drawSnakePart(snakePart) {
+        boardCtx.fillStyle = snakeColor;
+        boardCtx.strokestyle = unitBorderColor;
+        boardCtx.fillRect(snakePart.x, snakePart.y, 10, 10);
+        boardCtx.strokeRect(snakePart.x, snakePart.y, 10, 10);
+    }
+
+    function drawApple() {
+        boardCtx.fillStyle = appleColor;
+        boardCtx.strokestyle = unitBorderColor;
+        boardCtx.fillRect(applePosition.x, applePosition.y, 10, 10);
+        boardCtx.strokeRect(applePosition.x, applePosition.y, 10, 10);
+    }
+
+    function moveSnake() {
+        const head = {x: snakePositions[0].x + dx, y: snakePositions[0].y + dy};
+        snakePositions.unshift(head);
+        checkGameOver();
+        checkGotApple();
+        if (gotApple) {
+            gotApple = false;
+        } else {
+            const tail = snakePositions.pop()
+        }
+        if (isGameOver) {
+            handleGameOver();
+            return;
+        }
+    }
+
+    function handleGameOver() {
+        const title = document.getElementById("title");
+        title.innerHTML = "Game Over!";
+        updateHighestScore();
+    }
+
+    function checkGotApple() {
+        const head = snakePositions[0];
+        if (head.x == applePosition.x && head.y == applePosition.y) {
+            gotApple = true;
+            shuffleApple();
+            updateScore();
+        }
+    }
+
+    function checkGameOver() {
+        const head = snakePositions[0];
+        if (head.x < 0 || head.y < 0 || head.x >= width * tileSize || head.y >= height * tileSize) {
+            isGameOver = true;
+            return;
+        }
+        for (let i = 4; i < snakePositions.length; i++) {
+            const bodyPosition = snakePositions[i];
+            if (head.x == bodyPosition.x && head.y == bodyPosition.y) {
+                isGameOver = true;
+                return;
+            }
+        }
+    }
+
+    function updateScore() {
+        const title = document.getElementById("title");
+        title.innerHTML = "현재 점수: " + snakePositions.length;
+    }
+
+    function updateHighestScore() {
+        const subtitle = document.getElementById("subtitle");
+        let highestScore = getCookie("highestScore");
+        highestScore = highestScore ? highestScore : 0;
+        if (highestScore < snakePositions.length) {
+            highestScore = snakePositions.length;
+            setCookie("highestScore", highestScore)
+        }
+        subtitle.innerHTML = "최고 점수: " + highestScore;
+    }
+
+    function shuffleApple() {
+        const randX = getRandomInt(0, 40) * 10;
+        const randY = getRandomInt(0, 40) * 10;
+        applePosition = {x: randX, y: randY};
+    }
+
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function setCookie(cookieName, cookieValue, cookieExpire, cookiePath, cookieDomain, cookieSecure) {
+        let cookieText = escape(cookieName) + '=' + escape(cookieValue);
+        cookieText += (cookieExpire ? '; EXPIRES=' + cookieExpire.toUTCString() : '');
+        cookieText += (cookiePath ? '; PATH=' + cookiePath : '');
+        cookieText += (cookieDomain ? '; DOMAIN=' + cookieDomain : '');
+        cookieText += (cookieSecure ? '; SECURE' : '');
+        document.cookie = cookieText;
+    }
+
+    function getCookie(cookieName) {
+        let cookieValue = null;
+        if (document.cookie) {
+            const array = document.cookie.split((escape(cookieName) + '='));
+            if (array.length >= 2) {
+                const arraySub = array[1].split(';');
+                cookieValue = unescape(arraySub[0]);
+            }
+        }
+        return cookieValue;
+    }
+
+    function deleteCookie(cookieName) {
+        const temp = getCookie(cookieName);
+        if (temp) {
+            setCookie(cookieName, temp, (new Date(1)));
+        }
+    }
+
+    function isMobile() {
+        const userAgent = navigator.userAgent;
+        if (userAgent.match(/iPhone|iPod|Android|Windows CE|BlackBerry|Symbian|Windows Phone|webOS|Opera Mini|Opera Mobi|POLARIS|IEMobile|lgtelecom|nokia|SonyEricsson/i) != null || userAgent.match(/LG|SAMSUNG|Samsung/) != null) {
+            return true;
+        } else {
+            return false;
+        }
+
+    }
+</script>
+</body>
+</html>
