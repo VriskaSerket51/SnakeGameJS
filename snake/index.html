@@ -242,6 +242,7 @@
     }
 
     function shuffleApple() {
+        // TODO Apple must not be overlaped with Snakes. This code can cause such situation.
         const randX = getRandomInt(0, 40) * 10;
         const randY = getRandomInt(0, 40) * 10;
         applePosition = {x: randX, y: randY};
