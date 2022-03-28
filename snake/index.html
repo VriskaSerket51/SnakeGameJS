@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>스네이크 게임</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
+            integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13"
+            crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="/lib/css/fonts.css" rel="stylesheet"/>
 </head>
-
+<!-- 심심하다면? https://이디저디.com/common/questions/encoding.html -->
 <body style="padding-top: 20px;padding-bottom: 0px;background-color: white;font-family: NanumSquareR;min-width: 425px;">
 <style>
     #title {
@@ -29,6 +33,7 @@
 
 </style>
 
+<div id="debug" style="text-align: center"></div>
 <div id="game">
     <div style="text-align: center">
         <h2 id="title"></h2>
@@ -44,6 +49,8 @@
 </div>
 </body>
 <script>
+    const debug = false;
+
     const width = 400;
     const height = 400;
     const tickSpeed = 100;
@@ -71,6 +78,7 @@
     const gameOverSnd = new Audio();
 
     let snakePositions;
+    let keyBuffer = [];
 
     let dx = 0;
     let dy = 0;
@@ -90,9 +98,12 @@
     }
 
     function awake() {
-        //mainBgm.src = "";
-        //gotAppleSnd.src = "./audio/GotAppleSnd.wav";
-        //gameOverSnd.src = "./audio/GameOverSnd.wav";
+        if (debug) {
+            document.getElementById("debug").innerHTML = navigator.userAgent + ", MaxTouchPoints: " + navigator.maxTouchPoints;
+        }
+        //mainBgm.src =
+        gotAppleSnd.src = "./audio/GotAppleSnd.wav";
+        gameOverSnd.src = "./audio/GameOverSnd.wav";
         reset();
         if (isMobile()) {
             const mobileInfo = document.getElementById("mobileInfo")
@@ -104,6 +115,7 @@
 
     function reset() {
         isGameOver = false;
+        keyBuffer = [];
         snakePositions = [
             {x: width / 2, y: height / 2},
         ];
@@ -121,19 +133,30 @@
 
     function update() {
         if (!isGameOver) {
+            handleKeyBuffer();
+            clearBoard();
+            moveSnake();
+            drawSnake();
+            drawApple();
+
             setTimeout(function onTick() {
-                clearBoard();
-                moveSnake();
-                drawSnake();
-                drawApple();
                 update();
             }, tickSpeed)
         }
     }
 
-    function onKeyPressed(e) {
-        if (handleGameKey(e.key)) {
+    function handleKeyBuffer() {
+        const e = keyBuffer.shift();
+        if (e != undefined && handleGameKey(e.key)) {
             e.preventDefault();
+        }
+    }
+
+    function onKeyPressed(e) {
+        if (isGameOver && e.key == "Enter") {
+            reset();
+        } else {
+            keyBuffer.push(e);
         }
     }
 
@@ -161,10 +184,6 @@
                     lastKey = key;
                     return true;
             }
-        }
-        if (isGameOver && key == "Enter") {
-            reset();
-            return true;
         }
         return false;
     }
@@ -325,16 +344,16 @@
     }
 
     function playSnd(snd) {
-        //if (!snd.paused) {
-        //    snd.pause();
-        //    snd.currentTime = 0;
-        //}
-        //snd.play();
+        if (!snd.paused) {
+            snd.pause();
+            snd.currentTime = 0;
+        }
+        snd.play();
     }
 
     function isMobile() {
         const userAgent = navigator.userAgent;
-        if (userAgent.match(/iPhone|iPod|Android|Windows CE|BlackBerry|Symbian|Windows Phone|webOS|Opera Mini|Opera Mobi|POLARIS|IEMobile|lgtelecom|nokia|SonyEricsson/i) != null || userAgent.match(/LG|SAMSUNG|Samsung/) != null) {
+        if (userAgent.match(/iPhone|iPod|Android|Windows CE|BlackBerry|Symbian|Windows Phone|webOS|Opera Mini|Opera Mobi|POLARIS|IEMobile|lgtelecom|nokia|SonyEricsson/i) != null || userAgent.match(/LG|SAMSUNG|Samsung/) != null || (userAgent.match(/Macintosh/) != null && navigator.maxTouchPoints == 5)) {
             return true;
         } else {
             return false;
