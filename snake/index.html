@@ -4,8 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>스네이크 게임</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
 </head>
-<body>
+
+<body style="padding-top: 20px;padding-bottom: 0px;background-color: white;font-family: NanumSquareR;min-width: 425px;">
 <style>
     #title {
         font-weight: 700;
@@ -15,22 +20,20 @@
         font-weight: 500;
     }
 
-    #info {
-    }
-
     #snakeBoard {
         position: relative;
         display: block;
         margin-left: auto;
         margin-right: auto;
     }
+
 </style>
 
 <div id="game">
     <div style="text-align: center">
         <h2 id="title"></h2>
         <h5 id="subtitle"></h5>
-        <h7 id="info">엔터 키를 눌러 재시도</h7>
+        <h7 id="info"></h7>
     </div>
     <canvas id="snakeBoard" width="400" height="400"></canvas>
     <div style="text-align: center">
@@ -39,17 +42,18 @@
         </div>
     </div>
 </div>
-
+</body>
 <script>
-    const width = 40;
-    const height = 40;
+    const width = 400;
+    const height = 400;
     const tickSpeed = 100;
-    const tileSize = 10;
+    const tileSize = 20;
 
     const boardBorderColor = "black";
     const boardBgColor = "white";
     const unitBorderColor = "darkblue";
-    const snakeColor = "limegreen";
+    const snakeHeadColor = "seagreen";
+    const snakeBodyColor = "mediumseagreen";
     const appleColor = "red";
 
     const board = document.getElementById("snakeBoard");
@@ -61,6 +65,10 @@
         "ArrowLeft": "ArrowRight",
         "ArrowRight": "ArrowLeft"
     };
+
+    const mainBgm = new Audio();
+    const gotAppleSnd = new Audio();
+    const gameOverSnd = new Audio();
 
     let snakePositions;
 
@@ -82,22 +90,29 @@
     }
 
     function awake() {
+        //mainBgm.src = "";
+        //gotAppleSnd.src = "./audio/GotAppleSnd.wav";
+        //gameOverSnd.src = "./audio/GameOverSnd.wav";
         reset();
         if (isMobile()) {
             const mobileInfo = document.getElementById("mobileInfo")
-            mobileInfo.innerHTML = "모바일 여러분을 위한 작은 배려";
+            mobileInfo.innerHTML = `모바일 여러분을 위한 작은 배려<br>(아래 엔터 키도 있음)`;
             const mobileKeyPad = document.getElementById("mobileKeyPad");
-            mobileKeyPad.innerHTML = `<div><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowUp")'>⬆</button></div><div><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowLeft")'>⬅</button><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowDown")'>⬇</button><button style="width: 50px;height: 50px" onclick='handleGameKey("ArrowRight")'>➡</button></div>`;
+            mobileKeyPad.innerHTML = `<div><button style="width: 70px;height: 70px" onclick='handleGameKey("ArrowUp")'>⬆</button></div><div><button style="width: 70px;height: 70px" onclick='handleGameKey("ArrowLeft")'>⬅</button><button style="width: 70px;height: 70px" onclick='handleGameKey("ArrowDown")'>⬇</button><button style="width: 70px;height: 70px" onclick='handleGameKey("ArrowRight")'>➡</button></div><br><br><div><button style="width: 180px;height: 60px" onclick='handleGameKey("Enter")'>Enter</button></div>`;
         }
     }
 
     function reset() {
         isGameOver = false;
         snakePositions = [
-            {x: width / 2 * tileSize, y: height / 2 * tileSize},
+            {x: width / 2, y: height / 2},
         ];
+        boardCtx.globalAlpha = 1;
         dx = tileSize;
+        dy = 0;
         lastKey = "ArrowRight";
+        const info = document.getElementById("info");
+        info.innerHTML = "";
         updateScore();
         updateHighestScore();
         shuffleApple();
@@ -158,25 +173,45 @@
         boardCtx.fillStyle = boardBgColor;
         boardCtx.strokestyle = boardBorderColor;
         boardCtx.fillRect(0, 0, board.width, board.height);
-        boardCtx.strokeRect(0, 0, board.width, board.height);
+        drawGrid();
+    }
+
+    function drawGrid() {
+        for (let x = 0; x <= width; x += tileSize) {
+            boardCtx.moveTo(x, 0);
+            boardCtx.lineTo(x, height);
+        }
+        for (let y = 0; y <= height; y += tileSize) {
+            boardCtx.moveTo(0, y);
+            boardCtx.lineTo(width, y);
+        }
+        boardCtx.stroke();
     }
 
     function drawSnake() {
         snakePositions.forEach(drawSnakePart)
+        drawSnakeHead(snakePositions[0]);
+    }
+
+    function drawSnakeHead(snakeHead) {
+        boardCtx.fillStyle = snakeHeadColor;
+        boardCtx.strokestyle = unitBorderColor;
+        boardCtx.fillRect(snakeHead.x, snakeHead.y, tileSize, tileSize);
+        boardCtx.strokeRect(snakeHead.x, snakeHead.y, tileSize, tileSize);
     }
 
     function drawSnakePart(snakePart) {
-        boardCtx.fillStyle = snakeColor;
+        boardCtx.fillStyle = snakeBodyColor;
         boardCtx.strokestyle = unitBorderColor;
-        boardCtx.fillRect(snakePart.x, snakePart.y, 10, 10);
-        boardCtx.strokeRect(snakePart.x, snakePart.y, 10, 10);
+        boardCtx.fillRect(snakePart.x, snakePart.y, tileSize, tileSize);
+        boardCtx.strokeRect(snakePart.x, snakePart.y, tileSize, tileSize);
     }
 
     function drawApple() {
         boardCtx.fillStyle = appleColor;
         boardCtx.strokestyle = unitBorderColor;
-        boardCtx.fillRect(applePosition.x, applePosition.y, 10, 10);
-        boardCtx.strokeRect(applePosition.x, applePosition.y, 10, 10);
+        boardCtx.fillRect(applePosition.x, applePosition.y, tileSize, tileSize);
+        boardCtx.strokeRect(applePosition.x, applePosition.y, tileSize, tileSize);
     }
 
     function moveSnake() {
@@ -185,6 +220,7 @@
         checkGameOver();
         checkGotApple();
         if (gotApple) {
+            playSnd(gotAppleSnd);
             gotApple = false;
         } else {
             const tail = snakePositions.pop()
@@ -196,9 +232,16 @@
     }
 
     function handleGameOver() {
-        const title = document.getElementById("title");
-        title.innerHTML = "Game Over!";
+        const info = document.getElementById("info");
+        info.innerHTML = `Game Over!<br>엔터 키를 눌러 재시도`;
         updateHighestScore();
+        playSnd(gameOverSnd);
+        boardCtx.fillStyle = "dimgray";
+        boardCtx.strokestyle = unitBorderColor;
+        boardCtx.fillRect(0, 0, width, height);
+        boardCtx.strokeRect(0, 0, width, height);
+        boardCtx.globalAlpha = 0.5;
+        drawGrid();
     }
 
     function checkGotApple() {
@@ -212,7 +255,7 @@
 
     function checkGameOver() {
         const head = snakePositions[0];
-        if (head.x < 0 || head.y < 0 || head.x >= width * tileSize || head.y >= height * tileSize) {
+        if (head.x < 0 || head.y < 0 || head.x >= width || head.y >= height) {
             isGameOver = true;
             return;
         }
@@ -242,9 +285,8 @@
     }
 
     function shuffleApple() {
-        // TODO Apple must not be overlaped with Snakes. This code can cause such situation.
-        const randX = getRandomInt(0, 40) * 10;
-        const randY = getRandomInt(0, 40) * 10;
+        const randX = getRandomInt(0, width / tileSize) * tileSize;
+        const randY = getRandomInt(0, height / tileSize) * tileSize;
         applePosition = {x: randX, y: randY};
     }
 
@@ -282,6 +324,14 @@
         }
     }
 
+    function playSnd(snd) {
+        //if (!snd.paused) {
+        //    snd.pause();
+        //    snd.currentTime = 0;
+        //}
+        //snd.play();
+    }
+
     function isMobile() {
         const userAgent = navigator.userAgent;
         if (userAgent.match(/iPhone|iPod|Android|Windows CE|BlackBerry|Symbian|Windows Phone|webOS|Opera Mini|Opera Mobi|POLARIS|IEMobile|lgtelecom|nokia|SonyEricsson/i) != null || userAgent.match(/LG|SAMSUNG|Samsung/) != null) {
@@ -289,7 +339,6 @@
         } else {
             return false;
         }
-
     }
 </script>
 </body>
